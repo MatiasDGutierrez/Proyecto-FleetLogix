@@ -1,8 +1,27 @@
 """
 Script de Extracción para Data Warehouse en Snowflake - FleetLogix ETL Pipeline
-OPTIMIZADO para modelo estrella y procesamiento dimensional
+=============================================================================
 Autor: Matias Damian Gutierrez
-Version: 2.7: Extrae datos desde PostgreSQL (fuente) hacia archivos staging para Snowflake
+Versión: 2.7
+Descripción: Extrae datos desde PostgreSQL (fuente operacional) hacia archivos
+             staging para posterior carga en Snowflake Data Warehouse.
+
+Este script es el componente de EXTRACCIÓN del pipeline ETL FleetLogix.
+Responsabilidades:
+- Conectarse a PostgreSQL (base de datos operacional)
+- Extraer datos de entregas con todas sus dimensiones relacionadas
+- Generar claves dimensionales (date_key, time_key) durante extracción
+- Calcular métricas derivadas para análisis dimensional
+- Guardar datos en formato Parquet para procesamiento eficiente
+- Validar conectividad con Snowflake antes de extraer datos
+
+Arquitectura de Extracción:
+1. Extracción por fechas: Procesa datos de los últimos 7 días
+2. Join dimensional: Extrae datos con todas las dimensiones en una query
+3. Claves temporales: Genera date_key y time_key para dim_date y dim_time
+4. Métricas derivadas: Calcula edad de vehículos, experiencia de conductores
+5. Formato Parquet: Usa formato columnar eficiente para Snowflake
+
 MEJORAS APLICADAS:
 1. Extracción incremental optimizada por fechas
 2. Generación de claves dimensionales (date_key, time_key)
@@ -10,6 +29,15 @@ MEJORAS APLICADAS:
 4. Formato Parquet para eficiencia en Snowflake
 5. Validación de conectividad dual (PostgreSQL y Snowflake)
 6. Procesamiento de múltiples días con consolidación
+
+Uso:
+    python MA_extract.py                    # Extracción estándar (7 días)
+    
+Dependencias:
+    - pandas: Manipulación de datos
+    - sqlalchemy: Conexión a bases de datos
+    - snowflake-connector-python: Validación de destino
+    - pyarrow: Formato Parquet
 """
 
 import pandas as pd
@@ -32,12 +60,37 @@ def get_postgres_connection():
     """
     Establece conexión con PostgreSQL usando SQLAlchemy.
     
+    Esta función lee las credenciales de PostgreSQL desde el archivo
+    config/settings.ini y crea un motor de conexión SQLAlchemy.
+    
+    Configuración requerida en settings.ini:
+        [postgres]
+        user = usuario_postgres
+        password = contraseña_postgres
+        host = host_postgres
+        port = 5432
+        database = nombre_base_datos
+    
     Returns:
-        engine: Motor de SQLAlchemy para PostgreSQL
-        
+        sqlalchemy.engine.Engine: Motor de conexión SQLAlchemy configurado
+                                   con pool_pre_ping=True para reconexión automática.
+    
     Raises:
-        FileNotFoundError: Si no se encuentra el archivo de configuración
-        KeyError: Si falta la sección postgres en la configuración
+        FileNotFoundError: Si el archivo config/settings.ini no existe.
+        KeyError: Si la sección [postgres] no está en settings.ini.
+        Exception: Error de conexión a PostgreSQL (credenciales inválidas,
+                   servidor no disponible, etc.)
+    
+    Ejemplo:
+        >>> from MA_extract import get_postgres_connection
+        >>> engine = get_postgres_connection()
+        >>> # Usar el engine para ejecutar queries
+        >>> df = pd.read_sql("SELECT * FROM vehicles", engine)
+        >>> engine.dispose()  # Importante: cerrar conexión
+    
+    Notas:
+        - La conexión usa pool_pre_ping=True para validar conexiones
+        - Es responsabilidad del llamar dispose() cuando termine de usar el engine
     """
     config = configparser.ConfigParser()
     
@@ -80,14 +133,40 @@ def get_postgres_connection():
 # ------------------------------
 def get_snowflake_connection():
     """
-    Crea conexión a Snowflake (data warehouse destino).
+    Crea conexión a Snowflake (data warehouse destino) para validación.
+    
+    Esta función lee las credenciales de Snowflake desde config/settings.ini
+    y crea un motor de conexión SQLAlchemy usando el conector específico.
+    
+    Configuración requerida en settings.ini:
+        [snowflake]
+        account = xy12345.us-east-1  # Incluir región
+        user = usuario_snowflake
+        password = contraseña_snowflake
+        database = FLEETLOGIX_DW
+        schema = ANALYTICS
+        warehouse = FLEETLOGIX_WH
+        role = ACCOUNTADMIN  # Opcional, default es ACCOUNTADMIN
     
     Returns:
-        engine: Motor de SQLAlchemy para Snowflake
-        
+        sqlalchemy.engine.Engine: Motor de conexión SQLAlchemy para Snowflake.
+    
     Raises:
-        FileNotFoundError: Si no se encuentra el archivo de configuración
-        KeyError: Si falta la sección snowflake en la configuración
+        FileNotFoundError: Si el archivo config/settings.ini no existe.
+        KeyError: Si la sección [snowflake] no está en settings.ini.
+        Exception: Error de conexión a Snowflake (credenciales inválidas,
+                   warehouse no disponible, etc.)
+    
+    Ejemplo:
+        >>> from MA_extract import get_snowflake_connection
+        >>> engine = get_snowflake_connection()
+        >>> # Verificar conexión
+        >>> result = pd.read_sql("SELECT CURRENT_VERSION()", engine)
+        >>> engine.dispose()
+    
+    Notas:
+        - El account debe incluir la región (ej: xy12345.us-east-1)
+        - Esta función se usa principalmente para validación, no para extracción
     """
     config = configparser.ConfigParser()
     
@@ -135,8 +214,26 @@ def check_snowflake_connectivity():
     """
     Verifica la conectividad con Snowflake y lista las tablas disponibles.
     
+    Esta función valida que:
+    1. Las credenciales de Snowflake son correctas
+    2. El warehouse está disponible y activo
+    3. El database y schema existen
+    4. Las tablas del modelo dimensional están creadas
+    
     Returns:
-        bool: True si la conexión es exitosa, False en caso contrario
+        bool: True si la conexión es exitosa y se pueden listar tablas,
+              False si hay algún error de conexión.
+    
+    Ejemplo:
+        >>> from MA_extract import check_snowflake_connectivity
+        >>> if check_snowflake_connectivity():
+        ...     print("Snowflake está disponible para carga")
+        ... else:
+        ...     print("Error: No se puede conectar a Snowflake")
+    
+    Notas:
+        - Esta función es crítica antes de iniciar extracción
+        - Si falla, no tiene sentido extraer datos sin destino
     """
     try:
         engine = get_snowflake_connection()
@@ -179,10 +276,33 @@ def check_snowflake_connectivity():
 def find_available_dates_in_postgres():
     """
     Busca todas las fechas con datos disponibles en PostgreSQL.
-    Lista las últimas 10 fechas con conteo de registros.
+    
+    Esta función consulta la tabla trips y deliveries para identificar
+    qué fechas tienen datos disponibles para extracción. Retorna las últimas
+    10 fechas con conteo de registros para ayudar a decidir qué extraer.
+    
+    Lógica de negocio:
+    - Solo considera fechas con departure_datetime no nulo
+    - Solo considera entregas con delivery_status no nulo
+    - Ordena por fecha descendente (más reciente primero)
+    - Calcula días de antigüedad para contexto
     
     Returns:
-        DataFrame: Fechas disponibles con conteo de registros, o None si no hay datos
+        pandas.DataFrame or None: DataFrame con columnas:
+                                - date: Fecha con datos
+                                - records: Cantidad de registros
+                                None si no hay datos disponibles.
+    
+    Ejemplo:
+        >>> from MA_extract import find_available_dates_in_postgres
+        >>> dates = find_available_dates_in_postgres()
+        >>> if dates is not None:
+        ...     print(f"Fechas disponibles: {len(dates)}")
+        ...     print(dates.head())
+    
+    Notas:
+        - Limitado a las últimas 10 fechas para no saturar output
+        - Útil para decidir rango de extracción
     """
     engine = get_postgres_connection()
     
@@ -223,12 +343,49 @@ def extract_data_by_date(target_date, limit=5000):
     """
     Extrae datos completos para una fecha específica con todas las dimensiones y métricas.
     
+    Esta función ejecuta una query compleja que hace JOIN de todas las tablas
+    del modelo operacional para extraer datos en formato denso (una fila por
+    entrega con todas sus dimensiones).
+    
+    Tablas incluidas en el JOIN:
+    - deliveries: Tabla principal de entregas
+    - trips: Viajes asociados a entregas
+    - vehicles: Vehículos usados en viajes
+    - drivers: Conductores de viajes
+    - routes: Rutas de viajes
+    - customers: Clientes de entregas
+    
+    Claves dimensionales generadas:
+    - date_key: YYYYMMDD para dim_date
+    - scheduled_time_key: HHMM para dim_time (programado)
+    - delivered_time_key: HHMM para dim_time (entregado)
+    
+    Métricas derivadas calculadas:
+    - vehicle_age_months: Edad del vehículo en meses
+    - driver_experience_months: Experiencia del conductor en meses
+    
     Args:
-        target_date: Fecha objetivo en formato YYYY-MM-DD
-        limit: Número máximo de registros a extraer
-        
+        target_date (str): Fecha objetivo en formato YYYY-MM-DD.
+        limit (int): Número máximo de registros a extraer.
+                     Por defecto: 5,000. Use None para sin límite.
+    
     Returns:
-        DataFrame: Datos extraídos con claves dimensionales calculadas, o None si no hay datos
+        pandas.DataFrame or None: DataFrame con datos extraídos y claves
+                                  dimensionales calculadas, o None si no hay datos.
+    
+    Raises:
+        Exception: Error en la query SQL o conexión a PostgreSQL.
+    
+    Ejemplo:
+        >>> from MA_extract import extract_data_by_date
+        >>> df = extract_data_by_date('2024-01-15', limit=1000)
+        >>> if df is not None:
+        ...     print(f"Extraídos {len(df)} registros")
+        ...     print(df.columns.tolist())
+    
+    Notas:
+        - La query usa parameterized queries para evitar SQL injection
+        - Ordena por departure_datetime DESC para datos más recientes primero
     """
     engine = get_postgres_connection()
     
@@ -364,12 +521,39 @@ def save_to_parquet(df, output_dir='../data/staging'):
     """
     Guarda datos en formato Parquet optimizado para carga en Snowflake.
     
+    Parquet es un formato columnar eficiente que:
+    - Comprime datos significativamente
+    - Mantiene tipos de datos de forma precisa
+    - Es nativo y eficiente en Snowflake
+    - Permite lectura rápida de columnas específicas
+    
+    Nomenclatura de archivos:
+    - staging_YYYYMMDD_HHMMSS.parquet
+    - El timestamp permite identificar la versión más reciente
+    
     Args:
-        df: DataFrame con los datos a guardar
-        output_dir: Directorio de salida para archivos staging
-        
+        df (pandas.DataFrame): DataFrame con los datos a guardar.
+                                Debe tener columnas con tipos de datos adecuados.
+        output_dir (str): Directorio de salida para archivos staging.
+                         Por defecto: '../data/staging'.
+                         Se crea si no existe.
+    
     Returns:
-        str: Ruta completa del archivo generado
+        str: Ruta completa del archivo Parquet generado.
+    
+    Raises:
+        Exception: Error al escribir el archivo (permisos, disco lleno, etc.)
+    
+    Ejemplo:
+        >>> from MA_extract import save_to_parquet
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'col1': [1, 2, 3], 'col2': ['a', 'b', 'c']})
+        >>> filepath = save_to_parquet(df)
+        >>> print(f"Datos guardados en: {filepath}")
+    
+    Notas:
+        - Usa engine='pyarrow' para máxima compatibilidad con Snowflake
+        - index=False para no guardar el índice de pandas
     """
     os.makedirs(output_dir, exist_ok=True)
     
@@ -387,10 +571,42 @@ def save_to_parquet(df, output_dir='../data/staging'):
 def main():
     """
     Función principal que orquesta el proceso de extracción completo.
-    Extrae datos de los últimos 7 días y los consolida en un archivo Parquet.
+    
+    Flujo de ejecución:
+    1. Verifica conectividad con Snowflake (destino)
+    2. Busca fechas disponibles en PostgreSQL (fuente)
+    3. Selecciona las últimas 7 fechas con datos
+    4. Extrae datos para cada fecha individualmente
+    5. Consolida todos los datos en un solo DataFrame
+    6. Guarda en formato Parquet en directorio staging
+    7. Genera reporte de resumen con métricas
+    
+    Estrategia de extracción:
+    - Procesa múltiples fechas para tener datos históricos
+    - Usa límite de 10,000 registros por fecha para evitar sobrecarga
+    - Consolida datos para procesamiento eficiente en transformación
+    - Genera archivo único con timestamp para trazabilidad
     
     Returns:
-        int: Código de salida (0 = éxito, 1 = error)
+        int: Código de salida (0 = éxito, 1 = error).
+    
+    Ejemplo:
+        >>> from MA_extract import main
+        >>> exit_code = main()
+        >>> if exit_code == 0:
+        ...     print("Extracción completada exitosamente")
+    
+    Métricas reportadas:
+        - Rango de fechas procesadas
+        - Días procesados
+        - Registros totales extraídos
+        - Tamaño del archivo generado
+        - Entidades únicas (vehículos, conductores, rutas, clientes)
+        - Entregas completadas vs totales
+    
+    Notas:
+        - El archivo generado se usa como input para MA_transform.py
+        - Si no hay datos en PostgreSQL, retorna código de error 1
     """
     print("=" * 70)
     print("EXTRACCIÓN PARA SNOWFLAKE - FLEETLOGIX ETL")
