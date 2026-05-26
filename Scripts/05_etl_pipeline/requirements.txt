@@ -1,0 +1,78 @@
+# =====================================================================================
+# DEPENDENCIAS DEL PROYECTO FLEETLOGIX DATA WAREHOUSE
+# Autor: Facundo Acosta
+# Versión: 2.1
+# Descripción: Librerías necesarias para el pipeline ETL y análisis de datos
+# =====================================================================================
+
+# ------------------------------
+# Librerías de manipulación de datos
+# ------------------------------
+pandas==2.1.4
+numpy==1.26.2
+
+# ------------------------------
+# Conexión a bases de datos
+# ------------------------------
+# PostgreSQL
+psycopg2-binary==2.9.9
+
+# Snowflake
+snowflake-connector-python==3.6.0
+snowflake-sqlalchemy==1.5.1
+
+# ORM y queries
+sqlalchemy==2.0.23
+
+# ------------------------------
+# Procesamiento de archivos
+# ------------------------------
+pyarrow==14.0.1          # Para archivos Parquet
+fastparquet==2023.10.1   # Alternativa para Parquet
+
+# ------------------------------
+# Configuración y utilidades
+# ------------------------------
+python-dotenv==1.0.0     # Manejo de variables de entorno
+configparser==6.0.0      # Lectura de archivos INI
+
+# ------------------------------
+# Generación de datos sintéticos (opcional, para desarrollo)
+# ------------------------------
+faker==21.0.0            # Generación de datos de prueba
+
+# ------------------------------
+# Logging y monitoreo
+# ------------------------------
+colorlog==6.8.0          # Logs con colores (opcional)
+
+# ------------------------------
+# Utilidades adicionales
+# ------------------------------
+python-dateutil==2.8.2   # Manejo de fechas
+pytz==2023.3.post1       # Zonas horarias
+
+# =====================================================================================
+# INSTALACIÓN
+# =====================================================================================
+# Para instalar todas las dependencias, ejecute:
+#   pip install -r requirements.txt
+#
+# Para instalar en un entorno virtual (recomendado):
+#   python -m venv venv
+#   source venv/bin/activate  # En Linux/Mac
+#   venv\Scripts\activate     # En Windows
+#   pip install -r requirements.txt
+#
+# Para actualizar todas las librerías:
+#   pip install --upgrade -r requirements.txt
+#
+# Para generar este archivo desde su entorno actual:
+#   pip freeze > requirements.txt
+# =====================================================================================
+
+# NOTAS DE COMPATIBILIDAD
+# - Python 3.8 o superior requerido
+# - Snowflake requiere Python 3.8-3.11 (verificar compatibilidad)
+# - psycopg2-binary es preferible a psycopg2 para evitar dependencias de compilación
+# - Las versiones especificadas han sido probadas y son estables
