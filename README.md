@@ -303,6 +303,32 @@ El script `MA_12Queries_Fleetlogix_db_8.sql` incluye:
 - Confirmar que warehouse está activo
 - Revisar permisos del usuario (mínimo ACCOUNTADMIN)
 
+## Setup rápido para otra máquina
+
+1. Crear y activar entorno virtual (recomendado):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+2. Instalar dependencias desde el archivo raíz `requirements.txt`:
+
+```powershell
+pip install -r requirements.txt
+```
+
+3. Configurar credenciales: copiar el ejemplo y completar valores reales:
+
+```powershell
+copy Scripts\05_etl_pipeline\Fleetlogix_dw\config\settings.ini.example Scripts\05_etl_pipeline\Fleetlogix_dw\config\settings.ini
+# editar Scripts\05_etl_pipeline\Fleetlogix_dw\config\settings.ini y completar valores
+```
+
+4. Ejecutar el pipeline según la guía en `Scripts/05_etl_pipeline/README.txt`.
+
+Nota: No subir `settings.ini` al repositorio. Usa `settings.ini.example` como plantilla.
+
 ### Error: "No module named 'streamlit'"
 **Solución**: `pip install streamlit plotly scikit-learn statsmodels`
 

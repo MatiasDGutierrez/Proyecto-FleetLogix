@@ -1,0 +1,19 @@
+[postgres]
+user = tu_usuario_postgres
+password = tu_contraseña_postgres
+host = tu_host_postgres
+port = 5432
+database = tu_database_postgres
+
+[snowflake]
+account = tu_account.us-east-1  # incluir región
+user = tu_usuario_snowflake
+password = tu_contraseña_snowflake
+warehouse = tu_warehouse
+database = tu_database_snowflake
+schema = tu_schema
+role = ACCOUNTADMIN
+
+# INSTRUCCIONES:
+# Copiar este archivo como `settings.ini` en la misma carpeta y completar
+# con las credenciales reales. Nunca subir `settings.ini` al repositorio.

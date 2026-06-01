@@ -90,7 +90,7 @@ Consulta SQL rápida en Snowflake:
 ESTRUCTURA DE ARCHIVOS CRÍTICOS
 =====================================================================================
 
-Fleetlogix_dw/config/settings.ini          ← Credenciales (NO subir a GitHub)
+Fleetlogix_dw/config/settings.ini          ← Credenciales (NO subir a GitHub). Copiar desde `settings.ini.example`.
 scripts/MA_main.py           ← Pipeline principal
 scripts/MA_extract.py        ← Extracción PostgreSQL
 scripts/MA_transform.py      ← Transformación datos
