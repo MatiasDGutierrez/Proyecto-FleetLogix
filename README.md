@@ -113,15 +113,15 @@ Editar `Fleetlogix_dw/config/settings.ini`:
 ```ini
 [postgres]
 user = tu_usuario_postgres
-password = tu_contraseña
-host = localhost
+password = tu_contraseña_postgres
+host = tu_host_postgres
 port = 5432
-database = fleetlogix_db
+database = tu_database_postgres
 
 [snowflake]
 account = tu_account.us-east-1
 user = tu_usuario_snowflake
-password = tu_contraseña
+password = tu_contraseña_snowflake
 database = FLEETLOGIX_DW
 schema = ANALYTICS
 warehouse = FLEETLOGIX_WH
@@ -292,14 +292,14 @@ El script `MA_12Queries_Fleetlogix_db_8.sql` incluye:
 ## 🔧 Solución de Problemas
 
 ### Error: "Sección [postgres] no encontrada"
-**Solución**: Verificar que `config/settings.ini` existe y tiene el formato correcto
+**Solución**: Verificar que `Fleetlogix_dw/config/settings.ini` existe y tiene el formato correcto
 
 ### Error: "Archivo no encontrado: staging_*.parquet"
 **Solución**: Verificar conexión a PostgreSQL, ejecutar extracción primero
 
 ### Error: "Snowflake connection failed"
 **Solución**: 
-- Verificar formato de account (debe incluir región: xy12345.us-east-1)
+- Verificar formato de account (debe incluir región: tu_account.us-east-1)
 - Confirmar que warehouse está activo
 - Revisar permisos del usuario (mínimo ACCOUNTADMIN)
 

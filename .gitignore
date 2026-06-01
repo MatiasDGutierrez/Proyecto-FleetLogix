@@ -6,7 +6,9 @@
 
 # Configuration files with credentials
 config/settings.ini
+**/config/settings.ini
 config/*.ini
+**/config/*.ini
 
 # Python
 __pycache__/

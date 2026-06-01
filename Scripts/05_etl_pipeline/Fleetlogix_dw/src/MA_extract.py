@@ -65,11 +65,11 @@ def get_postgres_connection():
     
     Configuración requerida en settings.ini:
         [postgres]
-        user = usuario_postgres
-        password = contraseña_postgres
-        host = host_postgres
+        user = tu_usuario_postgres
+        password = tu_contraseña_postgres
+        host = tu_host_postgres
         port = 5432
-        database = nombre_base_datos
+        database = tu_database_postgres
     
     Returns:
         sqlalchemy.engine.Engine: Motor de conexión SQLAlchemy configurado
@@ -140,9 +140,9 @@ def get_snowflake_connection():
     
     Configuración requerida en settings.ini:
         [snowflake]
-        account = xy12345.us-east-1  # Incluir región
-        user = usuario_snowflake
-        password = contraseña_snowflake
+        account = tu_account.us-east-1  # Incluir región
+        user = tu_usuario_snowflake
+        password = tu_contraseña_snowflake
         database = FLEETLOGIX_DW
         schema = ANALYTICS
         warehouse = FLEETLOGIX_WH

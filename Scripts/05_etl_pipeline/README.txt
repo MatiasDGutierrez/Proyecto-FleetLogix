@@ -10,8 +10,8 @@ ORDEN DE EJECUCIÓN (OBLIGATORIO):
    - Ejecutar en Snowflake con permisos ACCOUNTADMIN
    - Crea: STAR_SCHEMA, FACT_DELIVERIES y 6 tablas dimensionales
 
-2. CONFIGURAR CREDENCIALES
-   - Archivo: config/settings.ini
+2. CONFIGURAR CREDENCIAALES
+   - Archivo: Fleetlogix_dw/config/settings.ini
    - Completar [postgres] y [snowflake] con credenciales válidas
 
 
@@ -36,14 +36,14 @@ SOLUCIÓN RÁPIDA DE ERRORES COMUNES
 =====================================================================================
 
 ERROR: "Sección [postgres] no encontrada"
-SOLUCIÓN: Verificar que settings.ini existe en /config y tiene formato correcto
+SOLUCIÓN: Verificar que Fleetlogix_dw/config/settings.ini existe y tiene formato correcto
 
 ERROR: "Archivo no encontrado: staging_*.parquet"
 SOLUCIÓN: Verificar conexión a PostgreSQL, ejecutar extracción primero
 
 ERROR: "Snowflake connection failed"
 SOLUCIÓN: 
-  - Verificar formato de account (debe incluir región: xy12345.us-east-1)
+  - Verificar formato de account (debe incluir región: tu_account.us-east-1)
   - Confirmar que warehouse está activo
   - Revisar permisos del usuario (mínimo ACCOUNTADMIN)
 
@@ -90,7 +90,7 @@ Consulta SQL rápida en Snowflake:
 ESTRUCTURA DE ARCHIVOS CRÍTICOS
 =====================================================================================
 
-config/settings.ini          ← Credenciales (NO subir a Git)
+Fleetlogix_dw/config/settings.ini          ← Credenciales (NO subir a GitHub)
 scripts/MA_main.py           ← Pipeline principal
 scripts/MA_extract.py        ← Extracción PostgreSQL
 scripts/MA_transform.py      ← Transformación datos
